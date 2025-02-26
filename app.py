@@ -36,11 +36,14 @@ def scan_attendance():
     time_in = datetime.now().time()
 
     # Check if attendance exists for today
-    cursor.execute("SELECT id FROM attendance WHERE roll_number = %s AND date = %s", (roll_number, date))
+    cursor.execute("SELECT id,status FROM attendance WHERE roll_number = %s AND date = %s", (roll_number, date))
     existing_record = cursor.fetchone()
 
     if existing_record:
-        return jsonify({"message": "Attendance already marked"}), 200
+        new_status = 'absent' if existing_record[1] == 'present' else 'present'
+        cursor.execute("UPDATE attendance SET status = %s WHERE id = %s", (new_status, existing_record[0]))
+        db.commit()
+        return jsonify({"message": "Removed From class"}), 200
 
     # Insert attendance
     cursor.execute("INSERT INTO attendance (roll_number, name, date, time_in, status) VALUES (%s, %s, %s, %s, 'present')",
@@ -49,31 +52,6 @@ def scan_attendance():
 
     return jsonify({"message": "Attendance marked successfully"}), 200
 
-
-# ✅ Mark Student as Leaving (Set to Absent)
-@app.route("/api/mark-leave", methods=["POST"])
-def mark_leave():
-    data = request.json
-    roll_number = data.get("roll_number")
-
-    if not roll_number:
-        return jsonify({"message": "Roll number is required"}), 400
-
-    date = datetime.now().date()
-    time_out = datetime.now().time()
-
-    cursor.execute("SELECT id FROM attendance WHERE roll_number = %s AND date = %s", (roll_number, date))
-    existing_record = cursor.fetchone()
-
-    if not existing_record:
-        return jsonify({"message": "Student not found or not present today"}), 404
-
-    # Update attendance to mark exit time
-    cursor.execute("UPDATE attendance SET time_out = %s, status = 'absent' WHERE roll_number = %s AND date = %s",
-                   (time_out, roll_number, date))
-    db.commit()
-
-    return jsonify({"message": "Marked as left"}), 200
 
 
 # ✅ Generate Attendance Report
@@ -102,6 +80,17 @@ def generate_report():
     db.commit()
 
     return jsonify({"message": "Report generated successfully"}), 200
+# ✅ Clear Attendance Table
+@app.route("/api/clear-attendance", methods=["POST"])
+def clear_attendance():
+    try:
+        cursor.execute("TRUNCATE TABLE attendance")
+        return jsonify({"message": "Attendance table cleared successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    
 
 
 # ✅ Fetch Student Details by Roll Number
