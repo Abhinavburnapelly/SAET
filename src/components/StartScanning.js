@@ -6,19 +6,17 @@ function StartScanning() {
   const [rollNumber, setRollNumber] = useState("");
   const [studentDetails, setStudentDetails] = useState(null);
   const [error, setError] = useState("");
-  const [sessionId, setSessionId] = useState(""); // Store session ID
+  const [sessionId, setSessionId] = useState("");
 
-
-  // ✅ Handle Scan (Mark Present & Fetch Details)
   const handleScan = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post("http://localhost:5000/api/scan", {
         roll_number: rollNumber,
+        session_id: sessionId,
       });
 
       if (response.status === 200) {
-        // Fetch student details after scanning
         fetchStudentDetails(rollNumber);
         setError("");
       }
@@ -28,7 +26,6 @@ function StartScanning() {
     }
   };
 
-  // ✅ Fetch Student Details (Name & Status)
   const fetchStudentDetails = async (roll_number) => {
     try {
       const response = await axios.get(`http://localhost:5000/api/student/${roll_number}`);
@@ -40,11 +37,11 @@ function StartScanning() {
     }
   };
 
-  // ✅ Mark as Absent (Leaving)
   const handleMarkLeave = async () => {
     try {
       await axios.post("http://localhost:5000/api/mark-leave", {
         roll_number: rollNumber,
+        session_id: sessionId,
       });
 
       setStudentDetails({ ...studentDetails, status: "Absent" });
@@ -54,16 +51,14 @@ function StartScanning() {
     }
   };
 
-  // ✅ Take Attendance (Generate Report)
   const handleTakeAttendance = async () => {
     if (!sessionId) {
-      alert("Please enter a session ID before taking attendance");
+      alert("Please select a session before taking attendance");
       return;
     }
-    
     try {
       await axios.post("http://localhost:5000/api/generate-report", {
-        session_id: sessionId, // Send session ID
+        session_id: sessionId,
       });
       alert("Attendance report generated!");
     } catch (err) {
@@ -74,19 +69,18 @@ function StartScanning() {
   return (
     <Container className="mt-5">
       <Row>
-        {/* Left Side: Roll Number Input */}
         <Col md={6}>
           <Card className="p-4 shadow">
-            <h3 className="text-center">Enter Roll Number</h3>
+            <h3 className="text-center">Select Session</h3>
             {error && <p className="text-danger">{error}</p>}
             <Form.Group className="mb-3">
-                <Form.Label>Session ID</Form.Label>
-                <Form.Control
-                    type="text"
-                    placeholder="Enter session ID"
-                    value={sessionId}
-                    onChange={(e) => setSessionId(e.target.value)}
-                />
+              <Form.Label>Session</Form.Label>
+              <Form.Select value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
+                <option value="">Select a session</option>
+                {[...Array(6)].map((_, i) => (
+                  <option key={i + 1} value={`Period ${i + 1}`}>{`Period ${i + 1}`}</option>
+                ))}
+              </Form.Select>
             </Form.Group>
             <Form onSubmit={handleScan}>
               <Form.Group className="mb-3">
@@ -96,16 +90,16 @@ function StartScanning() {
                   placeholder="Scan or Enter Roll Number"
                   value={rollNumber}
                   onChange={(e) => setRollNumber(e.target.value)}
+                  disabled={!sessionId}
                 />
               </Form.Group>
-              <Button variant="primary" type="submit" className="w-100">
+              <Button variant="primary" type="submit" className="w-100" disabled={!sessionId}>
                 Scan & Mark Present
               </Button>
             </Form>
           </Card>
         </Col>
 
-        {/* Right Side: Display Student Details */}
         <Col md={6}>
           <Card className="p-4 shadow">
             <h3 className="text-center">Student Details</h3>
@@ -114,7 +108,7 @@ function StartScanning() {
                 <p><strong>Roll Number:</strong> {studentDetails.roll_number}</p>
                 <p><strong>Name:</strong> {studentDetails.name}</p>
                 <p><strong>Status:</strong> {studentDetails.status}</p>
-                <Button variant="danger" onClick={handleMarkLeave} className="w-100">
+                <Button variant="danger" onClick={handleMarkLeave} className="w-100" disabled={!sessionId}>
                   Mark as Absent
                 </Button>
               </>
@@ -125,10 +119,9 @@ function StartScanning() {
         </Col>
       </Row>
 
-      {/* Take Attendance Button */}
       <Row className="mt-4">
         <Col className="text-center">
-          <Button variant="success" onClick={handleTakeAttendance}>
+          <Button variant="success" onClick={handleTakeAttendance} disabled={!sessionId}>
             Take Attendance (Generate Report)
           </Button>
         </Col>
