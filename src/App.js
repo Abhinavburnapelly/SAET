@@ -5,6 +5,7 @@ import TeacherLogin from "./components/TeacherLogin";
 import StudentDashboard from "./components/StudentDashboard";
 import TeacherDashboard from "./components/TeacherDashboard";
 import StartScanning from "./components/StartScanning";
+import ManageAttendance from "./components/ManageAttendance";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
         <Route path="/scan" element={<StartScanning />} />
+        <Route path="/manage-attendance" element={<ManageAttendance/>} />
       </Routes>
     </Router>
   );

@@ -90,7 +90,7 @@ def clear_attendance():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    
+
 
 
 # ✅ Fetch Student Details by Roll Number
@@ -139,6 +139,33 @@ def student_login():
         return jsonify({"message": "Login successful", "token": "dummy_token"}), 200
     else:
         return jsonify({"message": query}), 401
+
+
+# ✅ Fetch session-wise attendance for a given date (or default to today)
+@app.route('/api/attendance-report', methods=['GET'])
+def get_attendance_report():
+    session_id = request.args.get('session_id')
+    date = request.args.get('date', datetime.today().strftime('%Y-%m-%d'))
+
+    query = """
+    SELECT id, roll_number, name, total_present, total_absent, last_updated 
+    FROM report 
+    WHERE 1=1
+    """
+    params = []
+
+    if session_id:
+        query += " AND session_id = %s"
+        params.append(session_id)
+
+    if date:
+        query += " AND DATE(last_updated) = %s"
+        params.append(date)
+
+    cursor.execute(query, tuple(params))
+    records = cursor.fetchall()
+
+    return jsonify(records)
 
 if __name__ == '__main__':
     app.run(debug=True)

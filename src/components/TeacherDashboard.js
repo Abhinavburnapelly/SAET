@@ -11,7 +11,7 @@ function TeacherDashboard() {
         <Button variant="success" className="w-100 mb-2" onClick={() => navigate("/scan")}>
           Start Scanning
         </Button>
-        <Button variant="info" className="w-100">
+        <Button variant="info" className="w-100" onClick={()=> navigate("/manage-attendance")}>
           Manage Attendance
         </Button>
       </Card>
