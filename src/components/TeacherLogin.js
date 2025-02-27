@@ -26,7 +26,7 @@ function TeacherLogin() {
       const data = await response.json();
 
       if (response.ok) {
-        alert("Login Successful");
+        console.log("Login Successful");
         navigate("/teacher-dashboard");
       } else {
         setError(data.message || "Invalid Credentials");

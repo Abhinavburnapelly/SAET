@@ -19,7 +19,6 @@ cursor = db.cursor()
 def scan_attendance():
     data = request.json
     roll_number = data.get("roll_number")
-    print("Roll Number: ", roll_number)
 
     if not roll_number:
         return jsonify({"message": "Roll number is required"}), 400
@@ -54,32 +53,54 @@ def scan_attendance():
 
 
 
-# ✅ Generate Attendance Report
 @app.route("/api/generate-report", methods=["POST"])
 def generate_report():
     data = request.json
     session_id = data.get("session_id")
-    
+
     if not session_id:
         return jsonify({"message": "Session ID is required"}), 400
 
-    cursor.execute("""
-        INSERT INTO report (roll_number, name, total_present, total_absent, last_updated, session_id)
-        SELECT roll_number, name,
-               COUNT(CASE WHEN status = 'present' THEN 1 END) AS total_present,
-               COUNT(CASE WHEN status = 'absent' THEN 1 END) AS total_absent,
-               NOW(), %s
-        FROM attendance
-        GROUP BY roll_number, name
-        ON DUPLICATE KEY UPDATE 
-            total_present = VALUES(total_present),
-            total_absent = VALUES(total_absent),
-            last_updated = NOW(),
-            session_id = VALUES(session_id);
-    """, (session_id,))
+    date = datetime.now().date()
+
+    # Fetch all students from users table
+    cursor.execute("SELECT roll_number, name FROM users WHERE role = 'student'")
+    all_students = {row[0]: row[1] for row in cursor.fetchall()}  # Store as dict {roll_number: name}
+
+    # Fetch students who have scanned attendance for the session
+    cursor.execute("SELECT roll_number, status FROM attendance WHERE date = %s" ,(date,))
+    scanned_students = dict(cursor.fetchall())  # {roll_number: status}
+    for roll_number, name in all_students.items():
+        # Determine the status
+        status = scanned_students.get(roll_number, "Absent")  # Default to "Absent" if not scanned
+
+        # Check if report entry exists for this student on this date
+        cursor.execute("SELECT id FROM report WHERE roll_number = %s AND last_updated = %s", 
+                       (roll_number, date))
+        existing_record = cursor.fetchone()
+        if existing_record:
+            # Update existing record
+            update_query = f"UPDATE report SET period_{session_id} = %s, last_updated = NOW() WHERE roll_number = %s AND last_updated = %s"
+            cursor.execute(update_query, (status, roll_number, date))
+        else:
+            # Create a new report entry with default 'Empty' values
+            insert_query = """
+                INSERT INTO report (roll_number, name, last_updated, 
+                    period_1, period_2, period_3, period_4, period_5, period_6)
+                VALUES (%s, %s, CURRENT_DATE, 'Empty', 'Empty', 'Empty', 'Empty', 'Empty', 'Empty')
+                ON DUPLICATE KEY UPDATE last_updated = CURRENT_DATE
+            """
+
+            cursor.execute(insert_query, (roll_number, name))
+
+            # Now update the specific period with attendance status
+            update_query = f"UPDATE report SET period_{session_id} = %s WHERE roll_number = %s AND last_updated = %s"
+            cursor.execute(update_query, (status, roll_number, date))
+
     db.commit()
 
     return jsonify({"message": "Report generated successfully"}), 200
+
 # ✅ Clear Attendance Table
 @app.route("/api/clear-attendance", methods=["POST"])
 def clear_attendance():
@@ -144,24 +165,23 @@ def student_login():
 # ✅ Fetch session-wise attendance for a given date (or default to today)
 @app.route('/api/attendance-report', methods=['GET'])
 def get_attendance_report():
-    session_id = request.args.get('session_id')
+    roll_number = request.args.get('roll_number')
     date = request.args.get('date', datetime.today().strftime('%Y-%m-%d'))
 
     query = """
-    SELECT id, roll_number, name, total_present, total_absent, last_updated 
+    SELECT id, roll_number, name, last_updated ,period_1, period_2, period_3, period_4, period_5, period_6
     FROM report 
     WHERE 1=1
     """
     params = []
 
-    if session_id:
-        query += " AND session_id = %s"
-        params.append(session_id)
+    if roll_number:
+        query += f" AND roll_number = %s"
+        params.append(roll_number)
 
     if date:
-        query += " AND DATE(last_updated) = %s"
+        query += " AND (last_updated) = %s"
         params.append(date)
-
     cursor.execute(query, tuple(params))
     records = cursor.fetchall()
 
