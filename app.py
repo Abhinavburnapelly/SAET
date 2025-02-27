@@ -159,7 +159,7 @@ def student_login():
     if student:
         return jsonify({"message": "Login successful", "token": "dummy_token"}), 200
     else:
-        return jsonify({"message": query}), 401
+        return jsonify({"message": "Login Failed"}), 401
 
 
 # ✅ Fetch session-wise attendance for a given date (or default to today)
@@ -186,6 +186,60 @@ def get_attendance_report():
     records = cursor.fetchall()
 
     return jsonify(records)
+
+@app.route('/api/student-attendance', methods=['GET'])
+def get_student_attendance():
+    roll_number = request.args.get('roll_number')  # Get roll number from request (logged-in student)
+    if not roll_number:
+        return jsonify({"error": "Roll number is required"}), 400
+
+    query = """
+    SELECT roll_number, name, last_updated, 
+           period_1, period_2, period_3, period_4, period_5, period_6
+    FROM report 
+    WHERE roll_number = %s
+    """
+    cursor.execute(query, (roll_number,))
+    records = cursor.fetchall()
+
+    if not records:
+        return jsonify({"message": "No attendance records found"}), 404
+    return jsonify(records)
+    # # Convert data into JSON format
+    # attendance_data = []
+    # total_classes = 0
+    # present_classes = 0
+
+    # for record in records:
+    #     row = {
+    #         "roll_number": record[0],
+    #         "name": record[1],
+    #         "last_updated": record[2],
+    #         "period_1": record[3],
+    #         "period_2": record[4],
+    #         "period_3": record[5],
+    #         "period_4": record[6],
+    #         "period_5": record[7],
+    #         "period_6": record[8],
+    #     }
+    #     attendance_data.append(row)
+
+    #     # Calculate attendance percentage
+    #     for status in record[3:]:  # Checking periods 1 to 6
+    #         if status != "Empty":
+    #             total_classes += 1
+    #             if status == "Present":
+    #                 present_classes += 1
+
+    # attendance_percentage = (present_classes / total_classes) * 100 if total_classes > 0 else 0
+
+    # return jsonify({
+    #     "attendance": attendance_data,
+    #     "total_present": present_classes,
+    #     "total_classes": total_classes,
+    #     "attendance_percentage": round(attendance_percentage, 2)
+    # })
+
 
 if __name__ == '__main__':
     app.run(debug=True)

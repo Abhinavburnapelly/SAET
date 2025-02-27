@@ -23,6 +23,7 @@ function StudentLogin() {
 
       if (response.ok) {
         localStorage.setItem("studentToken", data.token); // Store token
+        localStorage.setItem("studentRollNumber", rollNumber); // Store roll number
         navigate("/student-dashboard");
       } else {
         setError(data.message || "Invalid credentials");
