@@ -7,6 +7,7 @@ function StartScanning() {
   const [rollNumber, setRollNumber] = useState("");
   const [studentDetails, setStudentDetails] = useState(null);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(""); // Success message state
   const [sessionId, setSessionId] = useState(""); // Store session ID
   const [scanMethod, setScanMethod] = useState("scan"); // "scan" or "face_recognition"
   const [isStreaming, setIsStreaming] = useState(false); // To track live video stream
@@ -29,12 +30,13 @@ function StartScanning() {
       }
     } catch (err) {
       setError("Error accessing camera");
+      hideMessageAfterDelay(); // Hide error message after delay
     }
   };
 
   const stopLiveStream = () => {
     if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
       setIsStreaming(false);
     }
   };
@@ -51,10 +53,13 @@ function StartScanning() {
         fetchStudentDetails(rollNumber);
         setRollNumber("");
         setError("");
+        setSuccess("Student marked present successfully!");
+        hideMessageAfterDelay(); // Hide success message after delay
       }
     } catch (err) {
       setError("Student not found or error marking attendance");
       setStudentDetails(null);
+      hideMessageAfterDelay(); // Hide error message after delay
     }
   };
 
@@ -67,6 +72,7 @@ function StartScanning() {
       }
     } catch (err) {
       setError("Error fetching student details");
+      hideMessageAfterDelay(); // Hide error message after delay
     }
   };
 
@@ -79,11 +85,30 @@ function StartScanning() {
     try {
       await axios.post("http://localhost:5000/api/generate-report", { session_id: sessionId });
       await axios.post("http://localhost:5000/api/clear-attendance");
-      stopLiveStream(); // Restart camera
-      navigate("/teacher-dashboard");
+      stopLiveStream(); // Stop the live stream
+      setSuccess("Attendance successfully taken!"); // Show success message
+      setError(""); // Clear any previous errors
+
+      // Increment the session ID if it's not at the maximum limit
+      const nextSession = parseInt(sessionId) + 1;
+      if (nextSession <= 6) {
+        setSessionId(nextSession.toString());
+      }
+
+      hideMessageAfterDelay(); // Hide success message after delay
     } catch (err) {
       setError("Error generating report");
+      setSuccess(""); // Clear any previous success messages
+      hideMessageAfterDelay(); // Hide error message after delay
     }
+  };
+
+  // ✅ Hide Success or Error Message After Delay
+  const hideMessageAfterDelay = () => {
+    setTimeout(() => {
+      setSuccess("");
+      setError("");
+    }, 4000); // Hide message after 4 seconds
   };
 
   return (
@@ -94,7 +119,8 @@ function StartScanning() {
           <Card className="p-4 shadow">
             <h3 className="text-center">Select Session & Scan Method</h3>
             {error && <p className="text-danger">{error}</p>}
-            
+            {success && <p className="text-success">{success}</p>}
+
             <Form.Group className="mb-3">
               <Form.Label>Session</Form.Label>
               <Form.Select value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
@@ -111,17 +137,20 @@ function StartScanning() {
             {/* NEW DROPDOWN: Select Scan Method */}
             <Form.Group className="mb-3">
               <Form.Label>Scan Method</Form.Label>
-              <Form.Select value={scanMethod} onChange={(e) => {
-                setScanMethod(e.target.value);
-                if (e.target.value === "scan") stopLiveStream(); // Stop camera if switching back
-              }}>
+              <Form.Select
+                value={scanMethod}
+                onChange={(e) => {
+                  setScanMethod(e.target.value);
+                  if (e.target.value === "scan") stopLiveStream(); // Stop camera if switching back
+                }}
+              >
                 <option value="scan">Scan</option>
                 <option value="face_recognition">Live Face Recognition</option>
               </Form.Select>
             </Form.Group>
 
             {/* Roll Number Input (Only shown for Scan Method) */}
-            {scanMethod === "scan"  &&stopLiveStream&& (
+            {scanMethod === "scan" && (
               <Form onSubmit={handleScan}>
                 <Form.Group className="mb-3">
                   <Form.Label>Roll Number</Form.Label>
@@ -144,16 +173,27 @@ function StartScanning() {
         {/* Right Side: Live Camera or Student Details */}
         <Col md={6}>
           <Card className="p-4 shadow">
-            <h3 className="text-center">
-              {scanMethod === "scan" ? "Student Details" : "Live Face Recognition"}
-            </h3>
+            <div className="d-flex justify-content-between align-items-center">
+              <h3 className="text-center mb-0">
+                {scanMethod === "scan" ? "Student Details" : "Live Face Recognition"}
+              </h3>
+              <Button variant="secondary" size="sm" onClick={() => navigate(-1)}>
+                Go Back
+              </Button>
+            </div>
 
             {/* Show Student Details for Scan Method */}
             {scanMethod === "scan" && studentDetails ? (
               <>
-                <p><strong>Roll Number:</strong> {studentDetails.roll_number}</p>
-                <p><strong>Name:</strong> {studentDetails.name}</p>
-                <p><strong>Status:</strong> {studentDetails.status}</p>
+                <p>
+                  <strong>Roll Number:</strong> {studentDetails.roll_number}
+                </p>
+                <p>
+                  <strong>Name:</strong> {studentDetails.name}
+                </p>
+                <p>
+                  <strong>Status:</strong> {studentDetails.status}
+                </p>
               </>
             ) : scanMethod === "scan" ? (
               <p className="text-muted text-center">No student details available</p>
@@ -162,7 +202,17 @@ function StartScanning() {
             {/* Show Live Camera for Face Recognition */}
             {scanMethod === "face_recognition" && (
               <div className="text-center">
-                <video ref={videoRef} autoPlay playsInline style={{ width: "100%", maxHeight: "300px", borderRadius: "10px", border: "2px solid #ccc" }}></video>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{
+                    width: "100%",
+                    maxHeight: "300px",
+                    borderRadius: "10px",
+                    border: "2px solid #ccc",
+                  }}
+                ></video>
                 <p className="text-muted mt-2">Still in progress</p>
               </div>
             )}
