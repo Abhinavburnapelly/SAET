@@ -1,3 +1,5 @@
+import csv
+import io
 from flask import Flask, request, jsonify
 import mysql.connector
 from datetime import datetime
@@ -205,40 +207,78 @@ def get_student_attendance():
     if not records:
         return jsonify({"message": "No attendance records found"}), 404
     return jsonify(records)
-    # # Convert data into JSON format
-    # attendance_data = []
-    # total_classes = 0
-    # present_classes = 0
 
-    # for record in records:
-    #     row = {
-    #         "roll_number": record[0],
-    #         "name": record[1],
-    #         "last_updated": record[2],
-    #         "period_1": record[3],
-    #         "period_2": record[4],
-    #         "period_3": record[5],
-    #         "period_4": record[6],
-    #         "period_5": record[7],
-    #         "period_6": record[8],
-    #     }
-    #     attendance_data.append(row)
+@app.route('/api/students', methods=['POST'])
+def add_students():
+    """
+    Endpoint to add single or multiple students via JSON.
+    """
+    try:
+        data = request.json
+        students = data.get("students", [])
 
-    #     # Calculate attendance percentage
-    #     for status in record[3:]:  # Checking periods 1 to 6
-    #         if status != "Empty":
-    #             total_classes += 1
-    #             if status == "Present":
-    #                 present_classes += 1
+        if not isinstance(students, list) or len(students) == 0:
+            return jsonify({"error": "Invalid data format"}), 400
 
-    # attendance_percentage = (present_classes / total_classes) * 100 if total_classes > 0 else 0
+        # Validate each student
+        for student in students:
+            if not all(key in student for key in ("roll_number", "name", "password", "email")):
+                return jsonify({"error": "Each student must have roll_number, name, password, and email"}), 400
 
-    # return jsonify({
-    #     "attendance": attendance_data,
-    #     "total_present": present_classes,
-    #     "total_classes": total_classes,
-    #     "attendance_percentage": round(attendance_percentage, 2)
-    # })
+        # Insert students into the database
+        for student in students:
+            query = "INSERT INTO users (roll_number, name, password, email, role) VALUES (%s, %s, %s, %s, 'student')"
+            cursor.execute(query, (student["roll_number"], student["name"], student["password"], student["email"]))
+        db.commit()
+        return jsonify({"message": "Students added successfully"}), 201
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": f"An error occurred while adding students{e}"}), 400
+
+
+@app.route('/api/students/upload-csv', methods=['POST'])
+def upload_csv():
+    """
+    Endpoint to handle CSV file uploads and add students in bulk.
+    """
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+
+        # Parse the CSV file
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_reader = csv.DictReader(stream)
+
+        students = []
+        for row in csv_reader:
+            if all(key in row for key in ("roll_number", "name", "password", "email")):
+                students.append({
+                    "roll_number": row["roll_number"],
+                    "name": row["name"],
+                    "password": row["password"],
+                    "email": row["email"]
+                })
+
+        if not students:
+            return jsonify({"error": "No valid student data found in the CSV"}), 400
+
+        # Insert students into the database
+        for student in students:
+            query = "INSERT INTO users (roll_number, name, password, email, role) VALUES (%s, %s, %s, %s, 'student')"
+            cursor.execute(query, (student["roll_number"], student["name"], student["password"], student["email"]))
+        db.commit()
+        return jsonify({"message": "Students added successfully"}), 201
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": "An error occurred while processing the CSV file"}), 500
+
 
 
 if __name__ == '__main__':

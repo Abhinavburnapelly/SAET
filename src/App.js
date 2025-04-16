@@ -6,6 +6,8 @@ import StudentDashboard from "./components/StudentDashboard";
 import TeacherDashboard from "./components/TeacherDashboard";
 import StartScanning from "./components/StartScanning";
 import ManageAttendance from "./components/ManageAttendance";
+import EngagementDetection from "./components/EngagementDetection";
+import AddStudents from "./components/AddStudents";
 
 function App() {
   return (
@@ -18,6 +20,9 @@ function App() {
         <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
         <Route path="/scan" element={<StartScanning />} />
         <Route path="/manage-attendance" element={<ManageAttendance/>} />
+        <Route path="/engagement-tracking" element={<EngagementDetection />} />
+        <Route path="/add-students" element={<AddStudents/>} />
+  
       </Routes>
     </Router>
   );
